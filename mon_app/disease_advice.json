@@ -1,0 +1,176 @@
+{
+  "Apple Scab Leaf": {
+    "severity": "Modérée à élevée si non traitée",
+    "spread_risk": "Élevé par temps humide et pluvieux (spores transportées par le vent et la pluie)",
+    "prevention": "Ramasser et détruire les feuilles mortes en automne, espacer les arbres pour une bonne aération, choisir des variétés résistantes.",
+    "treatment": "Application de fongicide dès l'apparition des premiers symptômes ; élaguer les parties fortement atteintes."
+  },
+  "Apple rust leaf": {
+    "severity": "Modérée",
+    "spread_risk": "Élevé si un genévrier (hôte alternant) est présent à proximité",
+    "prevention": "Éloigner les pommiers des genévriers (plus de 500 m si possible), choisir des variétés résistantes à la rouille.",
+    "treatment": "Fongicide préventif au printemps ; retirer les feuilles atteintes."
+  },
+  "Bell_pepper leaf spot": {
+    "severity": "Modérée",
+    "spread_risk": "Élevé par éclaboussures d'eau et manipulation des plants humides",
+    "prevention": "Arroser au pied plutôt que sur le feuillage, rotation des cultures, désinfecter les outils.",
+    "treatment": "Retirer les feuilles atteintes, traitement bactéricide/fongicide adapté selon la cause identifiée."
+  },
+  "Corn Gray leaf spot": {
+    "severity": "Élevée en cas de forte pression, peut réduire significativement le rendement",
+    "spread_risk": "Élevé en climat humide, favorisé par les résidus de culture au sol",
+    "prevention": "Rotation des cultures, enfouissement des résidus, choix de variétés résistantes.",
+    "treatment": "Fongicide foliaire si le seuil de tolérance est dépassé, sur avis agronomique local."
+  },
+  "Corn leaf blight": {
+    "severity": "Modérée à élevée selon le stade de la culture",
+    "spread_risk": "Élevé par temps chaud et humide",
+    "prevention": "Rotation des cultures, variétés résistantes, gestion des résidus de récolte.",
+    "treatment": "Fongicide si l'infection est précoce et sévère ; surveiller l'évolution."
+  },
+  "Corn rust leaf": {
+    "severity": "Généralement modérée",
+    "spread_risk": "Modéré à élevé, spores transportées par le vent",
+    "prevention": "Variétés résistantes, surveillance régulière en saison humide.",
+    "treatment": "Fongicide rarement nécessaire sauf infestation sévère précoce."
+  },
+  "Potato leaf early blight": {
+    "severity": "Modérée, mais peut affecter le rendement si précoce",
+    "spread_risk": "Élevé par temps chaud et humide, se propage par éclaboussures",
+    "prevention": "Rotation des cultures, espacement suffisant des plants, éviter l'arrosage du feuillage.",
+    "treatment": "Fongicide dès les premiers symptômes, retirer les feuilles basses atteintes."
+  },
+  "Potato leaf late blight": {
+    "severity": "Très élevée — maladie historiquement dévastatrice (famine irlandaise)",
+    "spread_risk": "Très élevé et rapide par temps frais et humide",
+    "prevention": "Variétés résistantes, bonne aération, surveillance météo (alertes mildiou), éviter l'excès d'irrigation.",
+    "treatment": "Fongicide préventif/curatif urgent, destruction des plants sévèrement atteints pour limiter la propagation."
+  },
+  "Raspberry leaf": {
+    "severity": "N/A (feuille saine)",
+    "spread_risk": "N/A",
+    "prevention": "Surveillance régulière, bonne aération de la haie fruitière.",
+    "treatment": "Aucun traitement nécessaire."
+  },
+  "Squash Powdery mildew leaf": {
+    "severity": "Modérée, peut réduire la photosynthèse si étendue",
+    "spread_risk": "Élevé par temps sec et chaud avec forte humidité nocturne",
+    "prevention": "Espacement suffisant des plants, arrosage au pied, variétés résistantes.",
+    "treatment": "Fongicide adapté (ex: à base de soufre) ou solutions à base de bicarbonate en prévention légère."
+  },
+  "Tomato Early blight leaf": {
+    "severity": "Modérée à élevée si non traitée",
+    "spread_risk": "Élevé par temps chaud et humide, favorisé par le stress hydrique",
+    "prevention": "Rotation des cultures, paillage pour éviter les éclaboussures de terre, espacement suffisant.",
+    "treatment": "Retirer les feuilles basses atteintes, fongicide dès les premiers symptômes."
+  },
+  "Tomato Septoria leaf spot": {
+    "severity": "Modérée, peut provoquer une défoliation importante si non traitée",
+    "spread_risk": "Élevé par temps humide, se propage par éclaboussures",
+    "prevention": "Arroser au pied, pailler le sol, éliminer les débris végétaux en fin de saison.",
+    "treatment": "Retirer et détruire les feuilles atteintes, fongicide si l'infection progresse."
+  },
+  "Tomato leaf bacterial spot": {
+    "severity": "Modérée à élevée selon les conditions climatiques",
+    "spread_risk": "Élevé par temps chaud et pluvieux, se propage par éclaboussures et outils contaminés",
+    "prevention": "Utiliser des semences/plants certifiés sains, désinfecter les outils, éviter de travailler sur plants mouillés.",
+    "treatment": "Bactéricide à base de cuivre en préventif ; retirer les parties atteintes. Pas de traitement curatif garanti contre les bactéries."
+  },
+  "Tomato leaf late blight": {
+    "severity": "Très élevée, propagation rapide possible",
+    "spread_risk": "Très élevé par temps frais et humide",
+    "prevention": "Bonne aération, éviter l'arrosage du feuillage, variétés résistantes si disponibles.",
+    "treatment": "Fongicide urgent dès détection, retrait immédiat et destruction des plants très atteints."
+  },
+  "Tomato leaf mosaic virus": {
+    "severity": "Élevée — pas de traitement curatif possible pour les virus",
+    "spread_risk": "Élevé par contact (mains, outils, insectes vecteurs), transmission mécanique facile",
+    "prevention": "Désinfecter systématiquement les outils, laver les mains entre les plants, utiliser des semences certifiées exemptes de virus.",
+    "treatment": "Aucun traitement curatif : retirer et détruire les plants infectés pour limiter la propagation."
+  },
+  "Tomato leaf yellow virus": {
+    "severity": "Élevée — peut fortement réduire le rendement",
+    "spread_risk": "Élevé, transmis principalement par les aleurodes (mouches blanches)",
+    "prevention": "Lutter contre les insectes vecteurs (filets anti-insectes, pièges), variétés résistantes si disponibles.",
+    "treatment": "Aucun traitement curatif direct : retirer les plants infectés, traiter les populations d'insectes vecteurs."
+  },
+  "Tomato mold leaf": {
+    "severity": "Modérée, favorisée par une humidité élevée en intérieur/serre",
+    "spread_risk": "Élevé en environnement confiné et humide (serre notamment)",
+    "prevention": "Améliorer la ventilation, réduire l'humidité ambiante, espacer les plants.",
+    "treatment": "Fongicide adapté si l'infection persiste malgré l'amélioration de l'aération."
+  },
+  "Tomato two spotted spider mites leaf": {
+    "severity": "Variable, peut être sévère en cas de forte infestation",
+    "spread_risk": "Élevé par temps chaud et sec, prolifération rapide",
+    "prevention": "Maintenir une humidité suffisante, surveiller régulièrement le dessous des feuilles.",
+    "treatment": "Acaricide ou lutte biologique (prédateurs naturels comme les phytoseiides), pulvérisation d'eau pour limiter la prolifération."
+  },
+  "grape leaf black rot": {
+    "severity": "Élevée, peut affecter fortement la récolte",
+    "spread_risk": "Élevé par temps chaud et humide, spores hivernant sur les débris végétaux",
+    "prevention": "Élimination des sarments et fruits momifiés, taille pour une bonne aération.",
+    "treatment": "Fongicide préventif dès le débourrement, retrait des parties atteintes."
+  },
+  "Apple leaf": {
+    "severity": "N/A (feuille saine)",
+    "spread_risk": "N/A",
+    "prevention": "Surveillance régulière, taille pour une bonne aération, apport nutritif équilibré.",
+    "treatment": "Aucun traitement nécessaire."
+  },
+  "Bell_pepper leaf": {
+    "severity": "N/A (feuille saine)",
+    "spread_risk": "N/A",
+    "prevention": "Arrosage régulier au pied, surveillance des premiers signes de stress ou de maladie.",
+    "treatment": "Aucun traitement nécessaire."
+  },
+  "Blueberry leaf": {
+    "severity": "N/A (feuille saine)",
+    "spread_risk": "N/A",
+    "prevention": "Maintenir un sol acide adapté, surveillance régulière du feuillage.",
+    "treatment": "Aucun traitement nécessaire."
+  },
+  "Cherry leaf": {
+    "severity": "N/A (feuille saine)",
+    "spread_risk": "N/A",
+    "prevention": "Taille régulière pour l'aération, surveillance des ravageurs et maladies fongiques.",
+    "treatment": "Aucun traitement nécessaire."
+  },
+  "Peach leaf": {
+    "severity": "N/A (feuille saine)",
+    "spread_risk": "N/A",
+    "prevention": "Surveillance de la cloque du pêcher en fin d'hiver, taille pour l'aération.",
+    "treatment": "Aucun traitement nécessaire."
+  },
+  "Potato leaf": {
+    "severity": "N/A (feuille saine)",
+    "spread_risk": "N/A",
+    "prevention": "Rotation des cultures, surveillance météo pour anticiper les risques de mildiou.",
+    "treatment": "Aucun traitement nécessaire."
+  },
+  "Soyabean leaf": {
+    "severity": "N/A (feuille saine)",
+    "spread_risk": "N/A",
+    "prevention": "Rotation des cultures, surveillance régulière du feuillage.",
+    "treatment": "Aucun traitement nécessaire."
+  },
+  "Strawberry leaf": {
+    "severity": "N/A (feuille saine)",
+    "spread_risk": "N/A",
+    "prevention": "Paillage pour limiter l'humidité au contact des feuilles, surveillance régulière.",
+    "treatment": "Aucun traitement nécessaire."
+  },
+  "Tomato leaf": {
+    "severity": "N/A (feuille saine)",
+    "spread_risk": "N/A",
+    "prevention": "Arrosage au pied, bonne aération entre les plants, surveillance régulière.",
+    "treatment": "Aucun traitement nécessaire."
+  },
+  "grape leaf": {
+    "severity": "N/A (feuille saine)",
+    "spread_risk": "N/A",
+    "prevention": "Taille régulière pour l'aération, surveillance des maladies fongiques.",
+    "treatment": "Aucun traitement nécessaire."
+  }
+}

@@ -1,0 +1,64 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Environnements virtuels
+venv/
+.venv/
+env/
+ENV/
+
+# =========================
+# Machine Learning
+# =========================
+
+# Modèles entraînés
+# *.pt
+*.pth
+*.onnx
+*.h5
+*.keras
+
+# Datasets
+datasets/
+dataset/
+data/
+*.zip
+
+# =========================
+# Secrets & certificats
+# =========================
+
+# Clés privées / certificats locaux
+*.pem
+*.key
+
+# Variables d'environnement
+.env
+.env.*
+
+# =========================
+# Jupyter
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs
+# =========================
+*.log

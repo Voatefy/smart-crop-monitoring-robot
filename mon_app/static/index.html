@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Détection maladie — caméra live</title>
+<style>
+  :root {
+    --bg: #0b0f0d; --panel: rgba(255,255,255,0.06); --border: rgba(255,255,255,0.14);
+    --text: #f2f4f2; --text-muted: rgba(242,244,242,0.65);
+    --accent: #3fae6a; --danger: #e0453f; --box-color: #ffcc00;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .stage {
+    position: relative; width: 100%; max-width: 480px; margin: 0 auto;
+    height: 400px; /* valeur de secours si aspect-ratio n'est pas supporté */
+    aspect-ratio: 3 / 4; background: #000; overflow: hidden; border-radius: 0 0 16px 16px;
+  }
+  video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  canvas.hidden-capture { display: none; }
+  .box-layer { position: absolute; inset: 0; pointer-events: none; }
+  .placeholder {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+    color: var(--text-muted); font-size: 14px; text-align: center; padding: 0 24px;
+  }
+  .status-pill {
+    position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 999px; padding: 5px 12px;
+    font-size: 12px; display: flex; align-items: center; gap: 6px; z-index: 5;
+  }
+  .status-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  .status-pill.alerting .dot { background: var(--danger); }
+  .status-pill.loading .dot { background: #d9a441; }
+  .controls { max-width: 480px; margin: 16px auto 0; padding: 0 16px 32px; display: flex; flex-direction: column; gap: 10px; }
+  button {
+    font: inherit; font-size: 14px; font-weight: 500; padding: 11px 16px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer;
+  }
+  button:active { transform: scale(0.98); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #06210f; }
+  button:disabled { opacity: 0.5; }
+  .note { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; padding: 4px 2px 0; }
+  .detection-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px;
+  }
+  .detection-card + .detection-card { margin-top: 8px; }
+  .detection-title { display: flex; justify-content: space-between; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+  .detection-title .conf { color: var(--accent); }
+  .advice-row { font-size: 12.5px; color: var(--text-muted); margin-top: 4px; }
+  .advice-row b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="captureCanvas" class="hidden-capture"></canvas>
+  <svg class="box-layer" id="boxLayer" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+  <div class="placeholder" id="placeholder">Appuie sur « Activer la caméra et l'analyse ».</div>
+  <div class="status-pill" id="statusPill">
+    <span class="dot"></span>
+    <span id="statusText">En veille</span>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="primary" id="camBtn">Activer la caméra et l'analyse</button>
+  <div id="detectionsList"></div>
+  <p class="note" id="serverNote">
+    Une image est envoyée au serveur toutes les 2 secondes ; les boîtes détectées
+    et les conseils associés s'affichent automatiquement.
+  </p>
+</div>
+
+<script>
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('captureCanvas');
+  const boxLayer = document.getElementById('boxLayer');
+  const placeholder = document.getElementById('placeholder');
+  const camBtn = document.getElementById('camBtn');
+  const statusPill = document.getElementById('statusPill');
+  const statusText = document.getElementById('statusText');
+  const detectionsList = document.getElementById('detectionsList');
+  const serverNote = document.getElementById('serverNote');
+
+  let analyzing = false;
+
+//   async function startCamera() {
+//     try {
+//       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+//       video.srcObject = stream;
+//       placeholder.style.display = 'none';
+//       camBtn.textContent = 'Analyse en cours...';
+//       camBtn.disabled = true;
+
+//       video.addEventListener('loadedmetadata', () => {
+//         canvas.width = video.videoWidth;
+//         canvas.height = video.videoHeight;
+//         setInterval(captureAndSend, 2000);
+//       });
+//     } catch (err) {
+//       placeholder.textContent = 'Accès caméra refusé ou indisponible. (' + err.message + ')';
+//     }
+//   }
+
+async function startCamera() {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error(
+        "La caméra nécessite HTTPS ou localhost. URL actuelle : " +
+        window.location.origin
+      );
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' }
+      },
+      audio: false
+    });
+
+    video.srcObject = stream;
+
+    placeholder.style.display = 'none';
+    camBtn.textContent = 'Analyse en cours...';
+    camBtn.disabled = true;
+
+    video.addEventListener('loadedmetadata', () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      captureAndSend();
+      setInterval(captureAndSend, 2000);
+    }, { once: true });
+
+  } catch (err) {
+    console.error("Erreur caméra :", err);
+
+    placeholder.style.display = 'flex';
+    placeholder.textContent =
+      'Accès caméra refusé ou indisponible : ' + err.message;
+
+    statusText.textContent = 'Caméra indisponible';
+  }
+}
+
+  function drawDetections(detections) {
+    boxLayer.innerHTML = '';
+    detectionsList.innerHTML = '';
+
+    if (detections.length === 0) {
+      statusPill.classList.remove('alerting');
+      statusText.textContent = 'Aucune anomalie';
+      return;
+    }
+
+    statusPill.classList.add('alerting');
+    statusText.textContent = detections.length + ' détection(s)';
+
+    detections.forEach(det => {
+      const { x1, y1, x2, y2 } = det.box;
+      const x = x1 * 100, y = y1 * 100, w = (x2 - x1) * 100, h = (y2 - y1) * 100;
+
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', x); rect.setAttribute('y', y);
+      rect.setAttribute('width', w); rect.setAttribute('height', h);
+      rect.setAttribute('fill', 'none'); rect.setAttribute('stroke', '#ffcc00'); rect.setAttribute('stroke-width', '0.6');
+      boxLayer.appendChild(rect);
+
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', x); label.setAttribute('y', Math.max(y - 1, 3));
+      label.setAttribute('fill', '#ffcc00'); label.setAttribute('font-size', '3.2'); label.setAttribute('font-weight', 'bold');
+      label.textContent = det.class + ' ' + det.confidence.toFixed(0) + '%';
+      boxLayer.appendChild(label);
+
+      const card = document.createElement('div');
+      card.className = 'detection-card';
+      let html = `<div class="detection-title"><span>${det.class}</span><span class="conf">${det.confidence.toFixed(1)}%</span></div>`;
+      if (det.advice) {
+        html += `<div class="advice-row"><b>Sévérité :</b> ${det.advice.severity || 'n/a'}</div>`;
+        html += `<div class="advice-row"><b>Prévention :</b> ${det.advice.prevention || 'n/a'}</div>`;
+        html += `<div class="advice-row"><b>Traitement :</b> ${det.advice.treatment || 'n/a'}</div>`;
+      }
+      card.innerHTML = html;
+      detectionsList.appendChild(card);
+    });
+  }
+
+  function captureAndSend() {
+    if (analyzing) return;
+    analyzing = true;
+    statusPill.classList.add('loading');
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(async (blob) => {
+      const formData = new FormData();
+      formData.append('image', blob, 'frame.jpg');
+
+      try {
+        const res = await fetch('/predict', { method: 'POST', body: formData });
+        const data = await res.json();
+        statusPill.classList.remove('loading');
+
+        if (data.error) {
+          serverNote.textContent = 'Erreur serveur : ' + data.error;
+          return;
+        }
+        drawDetections(data.detections);
+      } catch (err) {
+        statusPill.classList.remove('loading');
+        serverNote.textContent = 'Impossible de contacter le serveur (' + err.message + ')';
+      } finally {
+        analyzing = false;
+      }
+    }, 'image/jpeg', 0.85);
+  }
+
+  camBtn.addEventListener('click', startCamera);
+</script>
+</body>
+</html>
