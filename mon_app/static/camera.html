@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Caméra — Capture en direct</title>
+<style>
+  :root {
+    --bg: #0b0f0d; --text: #f2f4f2; --text-muted: rgba(242,244,242,0.65);
+    --accent: #3fae6a; --danger: #e0453f;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .stage {
+    position: relative; width: 100%; max-width: 480px; margin: 0 auto;
+    height: 500px; aspect-ratio: 3 / 4;
+    background: #000; overflow: hidden; border-radius: 0 0 16px 16px;
+  }
+  video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  canvas.hidden-capture { display: none; }
+  .placeholder {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+    color: var(--text-muted); font-size: 14px; text-align: center; padding: 0 24px;
+  }
+  .status-pill {
+    position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.55);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 999px; padding: 6px 14px;
+    font-size: 13px; display: flex; align-items: center; gap: 7px;
+  }
+  .status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .status-pill.sending .dot { background: #d9a441; }
+  .status-pill.error .dot { background: var(--danger); }
+  .counter {
+    position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.55);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 999px; padding: 6px 14px; font-size: 13px;
+  }
+  .controls { max-width: 480px; margin: 16px auto 0; padding: 0 16px 32px; display: flex; flex-direction: column; gap: 10px; }
+  button {
+    font: inherit; font-size: 15px; font-weight: 600; padding: 14px 16px; border-radius: 10px;
+    border: 1px solid var(--accent); background: var(--accent); color: #06210f; cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; }
+  .note { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; text-align: center; padding: 4px 2px 0; }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="captureCanvas" class="hidden-capture"></canvas>
+  <div class="placeholder" id="placeholder">
+    📷 Ce téléphone sert uniquement de caméra.<br>Les résultats s'affichent sur l'ordinateur.
+  </div>
+  <div class="status-pill" id="statusPill">
+    <span class="dot"></span>
+    <span id="statusText">En veille</span>
+  </div>
+  <div class="counter" id="counter">0 envoi(s)</div>
+</div>
+
+<div class="controls">
+  <button id="camBtn">Démarrer la capture</button>
+  <p class="note">
+    Une image est envoyée toutes les 2 secondes. Consulte les résultats sur
+    l'ordinateur à l'adresse de ce même serveur (page d'accueil).
+  </p>
+</div>
+
+<script>
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('captureCanvas');
+  const placeholder = document.getElementById('placeholder');
+  const camBtn = document.getElementById('camBtn');
+  const statusPill = document.getElementById('statusPill');
+  const statusText = document.getElementById('statusText');
+  const counter = document.getElementById('counter');
+
+  let analyzing = false;
+  let sentCount = 0;
+  let lastPosition = null;
+
+  // Tente de récupérer la position GPS du téléphone, si autorisée.
+  // Sert de solution de secours tant que le module GNSS du robot n'est pas intégré.
+  if ('geolocation' in navigator) {
+    navigator.geolocation.watchPosition(
+      (pos) => { lastPosition = pos.coords; },
+      () => { lastPosition = null; },
+      { enableHighAccuracy: true, maximumAge: 5000 }
+    );
+  }
+
+  async function startCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }, audio: false
+      });
+      video.srcObject = stream;
+      placeholder.style.display = 'none';
+      camBtn.textContent = 'Capture en cours...';
+      camBtn.disabled = true;
+
+      video.addEventListener('loadedmetadata', () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        setInterval(captureAndSend, 2000);
+      });
+    } catch (err) {
+      placeholder.textContent = 'Accès caméra refusé ou indisponible. (' + err.message + ')';
+    }
+  }
+
+  function captureAndSend() {
+    if (analyzing) return;
+    analyzing = true;
+    statusPill.className = 'status-pill sending';
+    statusText.textContent = 'Envoi...';
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(async (blob) => {
+      const formData = new FormData();
+      formData.append('image', blob, 'frame.jpg');
+      if (lastPosition) {
+        formData.append('latitude', lastPosition.latitude);
+        formData.append('longitude', lastPosition.longitude);
+      }
+
+      try {
+        const res = await fetch('/predict', { method: 'POST', body: formData });
+        await res.json();
+        sentCount++;
+        counter.textContent = sentCount + ' envoi(s)';
+        statusPill.className = 'status-pill';
+        statusText.textContent = 'En veille';
+      } catch (err) {
+        statusPill.className = 'status-pill error';
+        statusText.textContent = 'Erreur réseau';
+      } finally {
+        analyzing = false;
+      }
+    }, 'image/jpeg', 0.85);
+  }
+
+  camBtn.addEventListener('click', startCamera);
+</script>
+</body>
+</html>

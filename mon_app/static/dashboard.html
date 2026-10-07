@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tableau de bord — Surveillance des cultures</title>
+<style>
+  :root {
+    --bg: #0b0f0d; --panel: rgba(255,255,255,0.05); --border: rgba(255,255,255,0.12);
+    --text: #f2f4f2; --text-muted: rgba(242,244,242,0.6);
+    --accent: #3fae6a; --danger: #e0453f; --warn: #d9a441;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex; min-height: 100vh;
+  }
+  .main { flex: 1; padding: 24px; max-width: 900px; }
+  .sidebar {
+    width: 280px; border-left: 1px solid var(--border); padding: 24px 16px;
+    max-height: 100vh; overflow-y: auto;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { color: var(--text-muted); font-size: 13px; margin: 0 0 20px; }
+  .status-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+  .status-row .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .status-row.disconnected .dot { background: var(--danger); }
+
+  .image-frame {
+    position: relative; width: 100%; max-width: 640px; aspect-ratio: 4/3;
+    background: #000; border-radius: 12px; overflow: hidden; border: 1px solid var(--border);
+  }
+  .image-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .box-layer { position: absolute; inset: 0; }
+  .empty-state { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 14px; text-align: center; padding: 0 24px; }
+
+  .detections-panel { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .detection-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .detection-card.alert { border-color: rgba(224,69,63,0.4); }
+  .detection-title { display: flex; justify-content: space-between; font-weight: 600; font-size: 15px; margin-bottom: 8px; }
+  .detection-title .conf { color: var(--accent); }
+  .advice-row { font-size: 13px; color: var(--text-muted); margin-top: 5px; }
+  .advice-row b { color: var(--text); }
+  .meta-row { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
+
+  .sidebar h2 { font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 14px; }
+  .history-item {
+    display: flex; gap: 10px; padding: 8px; border-radius: 8px; margin-bottom: 6px; cursor: default;
+  }
+  .history-item img { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; flex-shrink: 0; background: #000; }
+  .history-item .hi-text { font-size: 12.5px; }
+  .history-item .hi-class { font-weight: 600; }
+  .history-item .hi-time { color: var(--text-muted); font-size: 11px; }
+  .history-item.alert .hi-class { color: #ff9690; }
+</style>
+</head>
+<body>
+
+<div class="main">
+  <h1>🌿 Tableau de bord — Surveillance des cultures</h1>
+  <p class="subtitle">Affiche en direct la dernière capture envoyée par la caméra</p>
+  <div class="status-row" id="statusRow">
+    <span class="dot"></span>
+    <span id="statusText">Connexion au serveur...</span>
+  </div>
+
+  <div class="image-frame" id="imageFrame">
+    <div class="empty-state" id="emptyState">En attente d'une première capture depuis la caméra (page /camera)...</div>
+    <img id="latestImage" style="display:none;">
+    <svg class="box-layer" id="boxLayer" viewBox="0 0 100 100" preserveAspectRatio="none" style="display:none;"></svg>
+  </div>
+
+  <div class="detections-panel" id="detectionsPanel"></div>
+</div>
+
+<div class="sidebar">
+  <h2>Historique récent</h2>
+  <div id="historyList"></div>
+</div>
+
+<script>
+  const statusRow = document.getElementById('statusRow');
+  const statusText = document.getElementById('statusText');
+  const emptyState = document.getElementById('emptyState');
+  const latestImage = document.getElementById('latestImage');
+  const boxLayer = document.getElementById('boxLayer');
+  const detectionsPanel = document.getElementById('detectionsPanel');
+  const historyList = document.getElementById('historyList');
+
+  let lastId = null;
+
+  function drawBoxes(detections) {
+    boxLayer.innerHTML = '';
+    detections.forEach(det => {
+      const { x1, y1, x2, y2 } = det.box;
+      const x = x1 * 100, y = y1 * 100, w = (x2 - x1) * 100, h = (y2 - y1) * 100;
+
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', x); rect.setAttribute('y', y);
+      rect.setAttribute('width', w); rect.setAttribute('height', h);
+      rect.setAttribute('fill', 'none'); rect.setAttribute('stroke', '#ffcc00'); rect.setAttribute('stroke-width', '0.5');
+      boxLayer.appendChild(rect);
+
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', x); label.setAttribute('y', Math.max(y - 1, 3));
+      label.setAttribute('fill', '#ffcc00'); label.setAttribute('font-size', '2.6'); label.setAttribute('font-weight', 'bold');
+      label.textContent = det.class + ' ' + det.confidence.toFixed(0) + '%';
+      boxLayer.appendChild(label);
+    });
+  }
+
+  function renderDetectionsPanel(detections) {
+    detectionsPanel.innerHTML = '';
+    if (detections.length === 0) {
+      detectionsPanel.innerHTML = '<div class="detection-card">✅ Aucune anomalie détectée sur cette capture.</div>';
+      return;
+    }
+    detections.forEach(det => {
+      const card = document.createElement('div');
+      card.className = 'detection-card alert';
+      let html = `<div class="detection-title"><span>${det.class}</span><span class="conf">${det.confidence.toFixed(1)}%</span></div>`;
+      if (det.advice) {
+        html += `<div class="advice-row"><b>Sévérité :</b> ${det.advice.severity || 'n/a'}</div>`;
+        html += `<div class="advice-row"><b>Prévention :</b> ${det.advice.prevention || 'n/a'}</div>`;
+        html += `<div class="advice-row"><b>Traitement :</b> ${det.advice.treatment || 'n/a'}</div>`;
+      }
+      card.innerHTML = html;
+      detectionsPanel.appendChild(card);
+    });
+  }
+
+  async function pollLatest() {
+    try {
+      const res = await fetch('/latest');
+      const data = await res.json();
+      statusRow.className = 'status-row';
+      statusText.textContent = 'Connecté';
+
+      if (data.empty) return;
+      if (data.id === lastId) return;
+      lastId = data.id;
+
+      emptyState.style.display = 'none';
+      latestImage.style.display = 'block';
+      boxLayer.style.display = 'block';
+      latestImage.src = '/' + data.image_path + '?t=' + Date.now();
+
+      drawBoxes(data.detections);
+      renderDetectionsPanel(data.detections);
+
+      const meta = document.createElement('div');
+      meta.className = 'meta-row';
+      let metaText = 'Capturé le ' + new Date(data.timestamp).toLocaleString('fr-FR');
+      if (data.latitude && data.longitude) {
+        metaText += ` — Position : ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`;
+      }
+      meta.textContent = metaText;
+      detectionsPanel.appendChild(meta);
+
+    } catch (err) {
+      statusRow.className = 'status-row disconnected';
+      statusText.textContent = 'Serveur injoignable';
+    }
+  }
+
+  async function pollHistory() {
+    try {
+      const res = await fetch('/history?limit=15');
+      const items = await res.json();
+      historyList.innerHTML = '';
+      items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'history-item' + (item.alert ? ' alert' : '');
+        const topClass = item.detections.length > 0 ? item.detections[0].class : 'Saine';
+        const time = new Date(item.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        div.innerHTML = `
+          <img src="/${item.image_path}">
+          <div class="hi-text">
+            <div class="hi-class">${topClass}</div>
+            <div class="hi-time">${time}</div>
+          </div>`;
+        historyList.appendChild(div);
+      });
+    } catch (err) { /* silencieux */ }
+  }
+
+  pollLatest();
+  pollHistory();
+  setInterval(pollLatest, 2000);
+  setInterval(pollHistory, 5000);
+</script>
+</body>
+</html>

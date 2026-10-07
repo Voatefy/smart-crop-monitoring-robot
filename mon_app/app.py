@@ -1,19 +1,26 @@
 """
-Serveur Flask — Détection de maladies de plantes (YOLOv8, modèle Roboflow)
-avec recommandations de traitement intégrées.
+Serveur Flask — Architecture caméra/tableau de bord séparés.
+
+Le téléphone envoie des images (route /predict), le PC consulte le
+dernier résultat (route /latest) et l'historique (route /history).
+Chaque capture est sauvegardée en base SQLite + image sur disque.
 
 Usage :
     pip install -r requirements_server.txt
     python app.py --model best_cropdisease.pt
 
-Puis ouvre http://localhost:5000 (ou http://<IP-machine>:5000 depuis un téléphone
-sur le même réseau Wi-Fi).
+Sur le téléphone : http://<IP>:5000/camera
+Sur le PC        : http://<IP>:5000/   (ou http://localhost:5000/)
 """
 
 import argparse
 import io
 import json
 import os
+import sqlite3
+import time
+from datetime import datetime
+
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from PIL import Image
@@ -25,18 +32,79 @@ CORS(app)
 model = None
 advice_db = {}
 
+DB_PATH = 'captures.db'
+CAPTURES_DIR = os.path.join('static', 'captures')
 
-def load_advice(path):
-    if path and os.path.exists(path):
-        with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    print(f"⚠️  Fichier de conseils introuvable : {path} (les recommandations seront absentes des réponses)")
-    return {}
 
+# ----------------------- Base de données -----------------------
+
+def init_db():
+    os.makedirs(CAPTURES_DIR, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS captures (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            image_path TEXT NOT NULL,
+            detections_json TEXT NOT NULL,
+            alert INTEGER NOT NULL,
+            latitude REAL,
+            longitude REAL
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+
+def save_capture(image, detections, latitude=None, longitude=None):
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    filename = f"{timestamp}_{int(time.time() * 1000) % 1000}.jpg"
+    filepath = os.path.join(CAPTURES_DIR, filename)
+    image.save(filepath, 'JPEG', quality=85)
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        'INSERT INTO captures (timestamp, image_path, detections_json, alert, latitude, longitude) '
+        'VALUES (?, ?, ?, ?, ?, ?)',
+        (
+            datetime.now().isoformat(),
+            f"captures/{filename}",
+            json.dumps(detections),
+            1 if len(detections) > 0 else 0,
+            latitude,
+            longitude,
+        )
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_latest():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute('SELECT * FROM captures ORDER BY id DESC LIMIT 1').fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_history(limit=20):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute('SELECT * FROM captures ORDER BY id DESC LIMIT ?', (limit,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+# ----------------------- Pages web -----------------------
 
 @app.route('/', methods=['GET'])
-def index():
-    return send_from_directory(app.static_folder, 'index.html')
+def dashboard():
+    return send_from_directory(app.static_folder, 'dashboard.html')
+
+
+@app.route('/camera', methods=['GET'])
+def camera_page():
+    return send_from_directory(app.static_folder, 'camera.html')
 
 
 @app.route('/health', methods=['GET'])
@@ -48,15 +116,19 @@ def health():
     })
 
 
+# ----------------------- API -----------------------
+
 @app.route('/predict', methods=['POST'])
 def predict():
     if model is None:
         return jsonify({'error': 'Modèle non chargé côté serveur.'}), 500
 
     if 'image' not in request.files:
-        return jsonify({'error': "Aucune image fournie. Utilise le champ 'image' (multipart/form-data)."}), 400
+        return jsonify({'error': "Aucune image fournie (champ 'image' attendu)."}), 400
 
     file = request.files['image']
+    latitude = request.form.get('latitude', type=float)
+    longitude = request.form.get('longitude', type=float)
 
     try:
         image = Image.open(io.BytesIO(file.read())).convert('RGB')
@@ -64,7 +136,6 @@ def predict():
         return jsonify({'error': f'Image illisible : {e}'}), 400
 
     img_w, img_h = image.size
-
     results = model(image, verbose=False, conf=0.25)
     r = results[0]
 
@@ -82,20 +153,51 @@ def predict():
                 'x2': x2 / img_w, 'y2': y2 / img_h,
             }
         }
-
-        # Ajoute les conseils si disponibles pour cette classe
         if cls_name in advice_db:
             entry['advice'] = advice_db[cls_name]
-
         detections.append(entry)
 
     detections.sort(key=lambda d: d['confidence'], reverse=True)
+
+    # Sauvegarde systématique (image + résultat), même si aucune détection
+    save_capture(image, detections, latitude, longitude)
 
     return jsonify({
         'detections': detections,
         'alert': len(detections) > 0,
         'count': len(detections),
     })
+
+
+@app.route('/latest', methods=['GET'])
+def latest():
+    row = get_latest()
+    if row is None:
+        return jsonify({'empty': True})
+
+    row['detections'] = json.loads(row['detections_json'])
+    del row['detections_json']
+    return jsonify(row)
+
+
+@app.route('/history', methods=['GET'])
+def history():
+    limit = request.args.get('limit', default=20, type=int)
+    rows = get_history(limit)
+    for row in rows:
+        row['detections'] = json.loads(row['detections_json'])
+        del row['detections_json']
+    return jsonify(rows)
+
+
+# ----------------------- Démarrage -----------------------
+
+def load_advice(path):
+    if path and os.path.exists(path):
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    print(f"⚠️  Fichier de conseils introuvable : {path}")
+    return {}
 
 
 def main():
@@ -106,12 +208,16 @@ def main():
     parser.add_argument('--host', type=str, default='0.0.0.0')
     parser.add_argument('--port', type=int, default=5000)
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--https', action='store_true',
+                         help="Active HTTPS (nécessite cert.pem et key.pem dans ce dossier)")
     args = parser.parse_args()
 
     if not os.path.exists(args.model):
         print(f"❌ Modèle introuvable : {args.model}")
-        print("   Vérifie que best_cropdisease.pt est bien dans ce dossier, ou précise --model <chemin>.")
         return
+
+    init_db()
+    print("Base de données initialisée :", DB_PATH)
 
     print(f"Chargement du modèle depuis : {args.model}")
     model = YOLO(args.model)
@@ -120,12 +226,18 @@ def main():
     advice_db = load_advice(args.advice_file)
     print(f"Base de conseils chargée : {len(advice_db)} entrées")
 
-    app.run(
-        host=args.host,
-        port=args.port,
-        debug=args.debug,
-        ssl_context=('cert.pem', 'key.pem')
-    )
+    ssl_context = None
+    if args.https:
+        if not (os.path.exists('cert.pem') and os.path.exists('key.pem')):
+            print("❌ --https demandé mais cert.pem / key.pem introuvables dans ce dossier.")
+            print("   Génère-les avec :")
+            print("   openssl req -x509 -newkey rsa:4096 -nodes -out cert.pem -keyout key.pem -days 365 -subj \"/CN=<TON_IP>\"")
+            return
+        ssl_context = ('cert.pem', 'key.pem')
+        print("HTTPS activé (certificat auto-signé — un avertissement du navigateur est normal, à accepter manuellement).")
+
+    app.run(host=args.host, port=args.port, debug=args.debug, ssl_context=ssl_context)
+
 
 if __name__ == '__main__':
     main()
